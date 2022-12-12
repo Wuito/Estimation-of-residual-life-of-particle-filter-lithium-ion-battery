@@ -40,3 +40,6 @@ numpy                1.23.3
 pandas               1.5.0
 ```
 
+## matlab 文件夹下是matlab相关的程序和数据包
+
+## 详细原理解释可以查看连接 [CSDN博客](https://blog.csdn.net/weixin_47407066/article/details/127424785?spm=1001.2014.3001.5501)
