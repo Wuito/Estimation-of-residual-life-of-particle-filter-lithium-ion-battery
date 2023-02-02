@@ -41,5 +41,17 @@ pandas               1.5.0
 ```
 
 ## matlab 文件夹下是matlab相关的程序和数据包
+推荐使用matlab18及以上版本
+### 在matlab环境中运行mian.m文件时注意文件夹下的工程路径应该包含以下文件
+.mat文件是根据代码需要可以在data目录中找到
+```
++--- Battery_Capacity.mat
++--- hfun.m
++--- main.m
++--- pf.m
++--- randomR.m
++--- residualR.m
+
+```
 
 ## 详细原理解释可以查看连接 [CSDN博客](https://blog.csdn.net/weixin_47407066/article/details/127424785?spm=1001.2014.3001.5501)
