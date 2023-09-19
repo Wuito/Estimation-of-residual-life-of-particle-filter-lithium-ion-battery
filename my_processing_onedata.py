@@ -2,6 +2,7 @@
 #           SOH,CCCT,CVCT,resistance,capacity数据并存储为npy文件
 #       使用马里兰大学数据集，电池型号为CS2电池
 # From: SWUST IPC14 DaiXingRong
+# 2023.5.4 v2.0 修改增加了RUL的计算内容
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -39,11 +40,19 @@ path_sorted = np.array(path)[idx]
 print("The file structure was read successfully. There are {} files in total".format(len(path_sorted)))
 
 count = 0
+capacities = []
 discharge_capacities = []
 health_indicator = []
 internal_resistance = []
 CCCT = []
 CVCT = []
+Voltage = []
+Current = []
+
+
+discharge_time = []
+k = []
+RUL = []
 
 for p in path_sorted:
     df = pd.read_excel(p, sheet_name=1)
@@ -69,7 +78,8 @@ for p in path_sorted:
         d_c = df_d['Current(A)']
         d_t = df_d['Test_Time(s)']               # 步长时间
         d_im = df_d['Internal_Resistance(Ohm)']  # 内阻
-
+        Voltage.append(np.average(d_v))
+        Current.append(np.average(d_c))
         if len(list(d_c)) != 0:
             time_diff = np.diff(list(d_t))  # 求时间差，np.diff：计算数组中n[a]-n[a-1]
             d_c = np.array(list(d_c))[1:]   # 读出电流值
@@ -78,8 +88,9 @@ for p in path_sorted:
             # 将所有第7步中的电池放电容量求和并正定
             # discharge_capacity_sum = np.sum(discharge_capacity)
             # discharge_capacities.append(-1 * discharge_capacity_sum)
-            discharge_capacity = [np.sum(discharge_capacity[:n]) for n in range(discharge_capacity.shape[0])]
+            discharge_capacity = [np.sum(discharge_capacity[:n]) for n in range(discharge_capacity.shape[0])] 
             discharge_capacities.append(-1 * discharge_capacity[-1])
+            discharge_time.append(sum(time_diff))# 计算RUL所需的时间量
 
             dec = np.abs(np.array(d_v) - 3.8)[1:]       # np.abs:求绝对值
             # np.argmin:将数组展平返回最小值的下标
@@ -89,7 +100,21 @@ for p in path_sorted:
             health_indicator.append((-1 * (end - start)))     # 这里定义的SOH是电池从3.8V放电到3.4V的电池容量
 
             internal_resistance.append(np.mean(np.array(d_im)))     # 求放电阶段电池的的内阻平均值
+            
+            
             count += 1
+# 计算RUL   
+print("discharge_time: {},type: {}".format(len(discharge_time), type(discharge_time), ))
+print("discharge_capacities: {},type: {}".format(len(discharge_capacities), type(discharge_capacities)))
+discharge_time = list(discharge_time)
+max_discharge = max(discharge_capacities)
+for i in np.arange(0, len(discharge_capacities), 1):
+    k.append(np.log(discharge_capacities[i]/max_discharge) * (-1/(discharge_time[i]/3600)))
+    RUL.append((discharge_capacities[i]/max_discharge -1)*k[i])
+RUL = np.array(RUL)
+k = np.array(k)
+print("RUL: {},type: {}".format(len(RUL), type(RUL)))
+            
 health_indicator = health_indicator/np.max(health_indicator)    # 计算SOH
 
 discharge_capacities = np.array(discharge_capacities)
@@ -98,15 +123,24 @@ health_indicator = np.array(health_indicator)
 internal_resistance = np.array(internal_resistance)
 CCCT = np.array(CCCT)
 CVCT = np.array(CVCT)
+Current = np.array(Current)
+Voltage = np.array(Voltage)
 
 idx = drop_outlier(discharge_capacities, count, 40)     # 以所有轮次中放电步骤的放电容量值为原始数据，以40为步长，对数据进行清洗处理
+
 df_result = pd.DataFrame({'cycle': np.linspace(1, idx.shape[0], idx.shape[0]),  # 步数
-                          'capacity': SOC[idx],            # 容量
-                          'SoH': health_indicator[idx],     # SOH
+                          'capacities': discharge_capacities[idx],# 容量值
+                          'Voltage': Voltage[idx],
+                          'Current': Current[idx],
                           'resistance': internal_resistance[idx],   # 电池内阻
+                          'SOC': SOC[idx],     # 归一化
+                          'SOH': health_indicator[idx],     # SOH
                           'CCCT': CCCT[idx],
-                          'CVCT': CVCT[idx]})
+                          'CVCT': CVCT[idx],
+                          'k': k[idx],
+                          'RUL': RUL[idx]})
 Battery[Battery_name] = df_result
 np.save(dir_path + Battery_name, Battery)
 print("Data parsing succeeded. The .npy file was saved to {}".format(dir_path + Battery_name + '.npy'))
+
 
